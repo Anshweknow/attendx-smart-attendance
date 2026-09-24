@@ -1,52 +1,53 @@
 # AttendX — Smart Attendance Management System
 
-AttendX is a production-oriented, modular-monolith backend for colleges that need reliable, role-scoped attendance management. The React frontend is intentionally deferred to the next development phase.
+AttendX is a role-scoped attendance platform for colleges. It combines a Node/Express/MongoDB API with a Vite + React single-page application for reliable attendance marking, corrections, auditability, and student self-service.
 
-## Features and roles
+## Product capabilities
 
-- **Admin:** manages departments, sections, students, faculty, and subjects; sees institutional dashboards and low-attendance results.
-- **Faculty:** sees assigned subjects, marks a whole section in one request, reviews attendance, corrects records with an auditable reason, and sees assigned-subject risk.
-- **Student:** reads only their own dashboard, subject breakdown, and history. Students have no attendance write endpoint.
-- JWT authentication, bcrypt password hashing, Helmet, configurable CORS, centralized safe errors, schema validation, and database unique indexes are included.
+- **Admin:** manage departments, sections, students, faculty, and subject assignments; review institutional at-risk students.
+- **Faculty:** view assigned subjects, take section attendance in bulk, review records, make reasoned corrections, inspect the immutable correction audit, and identify low attendance.
+- **Student:** view a polished read-only dashboard, subject-wise attendance, and personal attendance history.
+- JWT authentication and role-aware routing/UI; backend role authorization remains the security boundary.
+- Responsive SaaS-style application shell, accessible labelled forms, mobile table layouts, loading/error/empty states, and destructive-action confirmation.
 
-## Architecture
+## Stack and architecture
+
+- **Client:** React, Vite, React Router, JavaScript, CSS (`client/`).
+- **API:** Express, Mongoose, JWT, bcryptjs, Helmet, CORS (`server/src/`).
+- **Data:** MongoDB collections for User, Student, Faculty, Department, Section, Subject, Attendance, and AttendanceAudit.
 
 ```
+client/src/
+  components/  reusable table, modal, UI primitives
+  context/     authentication state
+  layouts/     role-aware application shell
+  pages/       admin, faculty, student, authentication pages
+  services/    centralized API client
 server/src/
-  config/       environment and Mongo connection
-  controllers/  HTTP orchestration
-  middleware/   authentication, authorization, errors
-  models/       Mongoose collections and indexes
-  routes/       API routing
-  services/     attendance workflow and calculations
-  seed/         deterministic local demo data
-  utils/        errors, responses, async wrapper
+  controllers/ routes/ services/ models/ middleware/ seed/
 ```
 
-The MongoDB collections are `User`, `Student`, `Faculty`, `Department`, `Section`, `Subject`, `Attendance`, and `AttendanceAudit`. User passwords are stored only as `passwordHash` and are excluded from normal model queries. Attendance has a database compound unique index on `(studentId, subjectId, date)`.
+## Local setup
 
-## Setup
+### 1. Backend
 
-1. Install dependencies: `npm install --prefix server`.
-2. Copy `.env.example` to `.env` and set a MongoDB Atlas or local connection string and a long, random `JWT_SECRET`.
-3. Start the API with `npm run server`.
-4. Verify `GET http://localhost:5000/api/health`.
-5. Seed a **local development database only** with `npm run seed`. The seed clears AttendX collections first, so it is repeatable and must not target production.
+1. Copy `.env.example` to `.env`.
+2. Set `MONGO_URI` and a long random `JWT_SECRET`.
+3. Install/run: `npm install --prefix server && npm run server`.
+4. Seed only a local development database: `npm run seed`.
 
-### Environment variables
+The API listens on `PORT` (default `5000`) and is mounted at `/api`. Configure `CLIENT_URL` with the frontend origin(s). MongoDB must support transactions for bulk marking and corrections (Atlas replica sets do).
 
-| Variable | Purpose |
-| --- | --- |
-| `MONGO_URI` | MongoDB connection URL |
-| `JWT_SECRET` | long random signing secret |
-| `PORT` | API port (default `5000`) |
-| `CLIENT_URL` | comma-separated allowed frontend origins |
-| `ATTENDANCE_THRESHOLD` | low-attendance threshold, default `75` |
-| `JWT_EXPIRES_IN` | token duration, default `1d` |
+### 2. Frontend
 
-## Demo data
+1. Copy `client/.env.example` to `client/.env`.
+2. Set `VITE_API_URL` to the API origin, for example `http://localhost:5000` during local development. It is deliberately blank by default so the frontend can also use a same-origin proxy/deployment.
+3. Install/run: `npm install --prefix client && npm run dev --prefix client`.
+4. Create a production build: `npm run build --prefix client`.
 
-The seed creates 1 admin, 2 faculty members, 20 students, 2 departments, 3 sections, 3 subject assignments, and eight days of attendance (including low-attendance students).
+No API URL is hard-coded in client source. The centralized client appends `/api` and sends the bearer token for authenticated calls.
+
+## Seeded demonstration accounts
 
 | Role | Email | Password |
 | --- | --- | --- |
@@ -54,26 +55,29 @@ The seed creates 1 admin, 2 faculty members, 20 students, 2 departments, 3 secti
 | Faculty | `faculty@attendx.com` | `AttendXDemo123!` |
 | Student | `student@attendx.com` | `AttendXDemo123!` |
 
-These credentials are intentionally limited to seed data, not application configuration.
+These are generated only by the local seed script and are not production configuration.
 
-## API overview
+## API contract
 
-- `POST /api/auth/login`, `GET /api/auth/me`, `GET /api/health`
-- CRUD: `/api/students`, `/api/faculty`, `/api/departments`, `/api/sections`, `/api/subjects`
-- Attendance: `POST /api/attendance/bulk`, `GET /api/attendance`, `GET /api/attendance/:id`, `PUT /api/attendance/:id`, `GET /api/attendance/student/:studentId`, `GET /api/attendance/low`, `GET /api/attendance/audit/:attendanceId`
-- Dashboards: `/api/dashboard/admin`, `/api/dashboard/faculty`, `/api/dashboard/student`
+All successful API responses are `{ success: true, message, data }`; errors are `{ success: false, message, error }`. Protected calls require `Authorization: Bearer <token>`.
 
-Every API response uses `{ success, message, data }`; errors use `{ success: false, message, error }`. Send `Authorization: Bearer <token>` to protected routes.
+- Auth: `POST /api/auth/login`, `GET /api/auth/me`
+- Resources: CRUD on `/api/students`, `/faculty`, `/departments`, `/sections`, `/subjects`
+- Attendance: `POST /api/attendance/bulk`, `GET /api/attendance`, `PUT /api/attendance/:id`, `GET /api/attendance/audit/:attendanceId`, `GET /api/attendance/low`, and student statistics endpoints
+- Dashboards: `/api/dashboard/admin`, `/faculty`, `/student`
 
-## Attendance rules and assumptions
+## Business rules and assumptions
 
-- `PRESENT` and `ABSENT` are the only statuses. A faculty member may submit only a subject assigned to their faculty profile and only students from that subject section. Admins have institution access.
-- Bulk requests validate every item before transactionally inserting; duplicate submissions return conflict instead of partially creating records.
-- The selected attendance date must be an ISO `YYYY-MM-DD` calendar date and cannot be later than today (UTC). This is the allowed-date assumption.
-- `Student.enrollmentDate` prevents attendance before enrollment. It defaults to creation time, but admins can provide it at student creation.
-- A correction requires a different status and non-empty reason; it updates the attendance record and creates an `AttendanceAudit` record within one MongoDB transaction.
-- Percentage is `presentClasses / totalConductedClasses * 100`, rounded to two decimals. With no conducted classes, `percentage` is `null` and `isLowAttendance` is false.
+- Attendance is only `PRESENT` or `ABSENT`; a bulk request validates an entire selected section before inserting it transactionally.
+- Faculty can act only on assigned subjects. Students can read only their own data and never receive attendance edit controls.
+- There is one attendance record per student, subject, and UTC calendar date. Duplicate submissions return HTTP 409.
+- Attendance cannot be future-dated or predate enrollment. Corrections need a changed status plus non-empty reason and create an `AttendanceAudit` entry.
+- Attendance percentage is present / total conducted classes, rounded to two decimals. A student with no classes has no percentage and is not low-attendance.
 
-## Deployment and future work
+## Vercel deployment
 
-Deploy `server` to a Node-compatible host, use MongoDB Atlas, and configure the deployed frontend URL in `CLIENT_URL`. MongoDB Atlas replica sets support the transactions used for bulk submission and corrections. Future work includes the React client, pagination/filtering, admin password-reset workflow, and operational monitoring.
+Deploy `client` as the Vercel project root/build target; use `npm run build` and publish `dist`. Set `VITE_API_URL` in Vercel environment variables to the deployed API origin and add the Vercel URL to backend `CLIENT_URL`. `vercel.json` rewrites SPA paths to `index.html` so React Router routes work on direct visits. Deploy the API separately to a Node-compatible service and provide MongoDB Atlas credentials there.
+
+## Known limitations
+
+The current API intentionally has no pagination, attendance date-range query parameters, password reset flow, or aggregate admin attendance percentage/department count endpoint. The frontend therefore uses the exact data and filters supported by the API rather than fabricating these capabilities.
