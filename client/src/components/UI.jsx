@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 export function Button({ children, variant = 'primary', className = '', ...props }) { return <button className={`button ${variant} ${className}`} {...props}>{children}</button>; }
 export function Badge({ children, type = 'neutral' }) { return <span className={`badge ${type}`}>{children}</span>; }
-export function Progress({ value }) { const safe = Number(value) || 0; const tone = safe < 75 ? 'low' : safe < 90 ? 'okay' : 'good'; return <div className="progress-wrap" aria-label={`${safe}% attendance`}><div className={`progress ${tone}`} style={{ width: `${Math.min(safe, 100)}%` }} /></div>; }
+export function Progress({ value }) { const hasValue = value !== null && value !== undefined; const safe = hasValue ? Math.max(0, Number(value) || 0) : 0; const tone = safe < 75 ? 'low' : safe < 90 ? 'okay' : 'good'; return <div className="progress-wrap" aria-label={hasValue ? `${safe}% attendance` : 'Attendance not yet available'}><div className={`progress ${tone}`} style={{ width: `${Math.min(safe, 100)}%` }} /></div>; }
 export function Loading({ text = 'Loading…' }) { return <div className="state loading"><span className="spinner" />{text}</div>; }
 export function ErrorMessage({ message, retry }) { return <div className="state error"><strong>Something went wrong.</strong><span>{message}</span>{retry && <Button variant="secondary" onClick={retry}>Try again</Button>}</div>; }
 export function Empty({ title = 'Nothing here yet', description }) { return <div className="state empty"><strong>{title}</strong>{description && <span>{description}</span>}</div>; }
