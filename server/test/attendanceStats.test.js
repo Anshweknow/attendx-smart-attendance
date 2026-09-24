@@ -1,0 +1,3 @@
+const test = require('node:test'); const assert = require('node:assert/strict'); const { summarize } = require('../src/services/attendanceStats');
+test('attendance statistics return null percentage when no class exists', () => assert.deepEqual(summarize([]), { totalClasses: 0, presentClasses: 0, absentClasses: 0, percentage: null, isLowAttendance: false }));
+test('attendance statistics calculate and round percentage', () => { const result = summarize([{ status: 'PRESENT' }, { status: 'PRESENT' }, { status: 'ABSENT' }], 75); assert.equal(result.percentage, 66.67); assert.equal(result.isLowAttendance, true); });
