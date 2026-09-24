@@ -1,0 +1,5 @@
+{
+  "name": "attendx-smart-attendance",
+  "private": true,
+  "scripts": { "server": "npm --prefix server start", "dev": "npm --prefix server run dev", "seed": "npm --prefix server run seed", "test": "npm --prefix server test" }
+}
