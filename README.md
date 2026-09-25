@@ -70,7 +70,7 @@ Copy the examples before running locally. Never commit the created `.env` files.
 3. Install dependencies: `npm install --prefix server` and `npm install --prefix client`.
 4. Start the API: `npm run server`.
 5. Start the client: `npm run dev --prefix client`.
-6. For local sample data only, run `npm run seed`. Use a MongoDB deployment that supports transactions (Atlas replica sets do).
+6. For local sample data only, run `npm run seed`.Use a MongoDB deployment that supports transactions (Atlas replica sets do).
 
 The seed resets the configured database deterministically, then creates one admin, two faculty members, 20 students, two departments, three sections, three assigned subjects, sample attendance, and low-attendance examples. Do **not** run it against a production database.
 
